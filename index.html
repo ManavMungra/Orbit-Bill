@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbit Bills — Billing</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 680 680'%3E%3Ccircle cx='340' cy='340' r='330' fill='white'/%3E%3Ccircle cx='340' cy='340' r='330' fill='none' stroke='%231a237e' stroke-width='20'/%3E%3Cellipse cx='340' cy='270' rx='145' ry='155' fill='%231a3ab5'/%3E%3Cellipse cx='340' cy='270' rx='90' ry='98' fill='white'/%3E%3Cellipse cx='340' cy='300' rx='205' ry='42' fill='none' stroke='%232962ff' stroke-width='22' stroke-linecap='round' transform='rotate(-15 340 300)'/%3E%3Ccircle cx='514' cy='212' r='22' fill='%232979ff'/%3E%3Crect x='308' y='208' width='64' height='80' rx='6' fill='white' stroke='%23c5cae9' stroke-width='2'/%3E%3Ctext x='333' y='228' font-family='Arial' font-size='14' font-weight='700' fill='%231a237e' text-anchor='middle'%3EBILL%3C/text%3E%3Crect x='312' y='242' width='52' height='34' rx='3' fill='none' stroke='%2390a4e0' stroke-width='2'/%3E%3Cline x1='312' y1='253' x2='364' y2='253' stroke='%2390a4e0' stroke-width='1.5'/%3E%3Cline x1='312' y1='264' x2='364' y2='264' stroke='%2390a4e0' stroke-width='1.5'/%3E%3Cline x1='340' y1='242' x2='340' y2='276' stroke='%2390a4e0' stroke-width='1.5'/%3E%3Crect x='341' y='243' width='22' height='10' rx='1' fill='%232962ff' opacity='0.8'/%3E%3Ctext x='260' y='488' font-family='Arial' font-size='62' font-weight='800' fill='%231a237e'%3EOrbit%3C/text%3E%3Ctext x='420' y='488' font-family='Arial' font-size='62' font-weight='800' fill='%232962ff'%3EBills%3C/text%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Geist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f0f10;
+  --surface: #18181b;
+  --surface2: #1f1f23;
+  --surface3: #27272c;
+  --border: #2e2e35;
+  --border2: #3a3a44;
+  --ink: #f0f0f2;
+  --ink-mid: #a0a0ae;
+  --ink-dim: #5a5a68;
+  --accent: #e85d2f;
+  --accent-dim: rgba(232,93,47,0.12);
+  --accent-hover: #f06b3c;
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,0.1);
+  --gold: #f59e0b;
+  --gold-dim: rgba(245,158,11,0.1);
+  --blue: #3b82f6;
+  --blue-dim: rgba(59,130,246,0.1);
+  --red-dim: rgba(232,93,47,0.1);
+  --radius: 6px;
+  --radius-lg: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.6);
+  --sidebar: 200px;
+}
+
+body {
+  font-family: 'Geist', sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  min-height: 100vh;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+.window { display: flex; flex-direction: column; height: 100vh; width: 100vw; }
+
+/* TITLEBAR */
+.titlebar {
+  height: 38px;
+  background: #111113;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  flex-shrink: 0;
+  user-select: none;
+  position: relative;
+}
+.titlebar-dots { display: flex; gap: 6px; }
+.titlebar-dots span { width: 12px; height: 12px; border-radius: 50%; display: block; }
+.dot-r { background: #ff5f57; }
+.dot-y { background: #febc2e; }
+.dot-g { background: #28c840; }
+.titlebar-title {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11.5px;
+  color: var(--ink-dim);
+  letter-spacing: .4px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.titlebar-tag {
+  font-family: 'Geist Mono', monospace;
+  font-size: 10px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid rgba(232,93,47,0.25);
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: .5px;
+  margin-left: auto;
+}
+
+/* LAYOUT */
+.app-body { display: flex; flex: 1; overflow: hidden; }
+
+/* SIDEBAR */
+.sidebar {
+  width: var(--sidebar);
+  background: #111113;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow-y: auto;
+}
+.sidebar-logo {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo-name {
+  font-family: 'Geist Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink);
+  line-height: 1.4;
+}
+.sidebar-logo-sub { font-size: 10px; color: var(--ink-dim); margin-top: 3px; }
+
+.sidebar-nav { flex: 1; padding: 10px 8px; }
+.sidebar-group { margin-bottom: 22px; }
+.sidebar-group-label {
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  padding: 0 8px 6px;
+  font-family: 'Geist Mono', monospace;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  cursor: pointer;
+  color: var(--ink-mid);
+  font-size: 12.5px;
+  transition: all .12s;
+  margin-bottom: 1px;
+}
+.nav-item:hover { background: var(--surface2); color: var(--ink); }
+.nav-item.active { background: var(--accent-dim); color: var(--accent); font-weight: 500; }
+.nav-item svg { width: 14px; height: 14px; flex-shrink: 0; opacity: .7; }
+.nav-item.active svg { opacity: 1; }
+
+/* MAIN */
+.main { flex: 1; overflow-y: auto; background: var(--bg); }
+.page { display: none; padding: 24px 28px; }
+.page.active { display: block; }
+
+/* PAGE HEADER */
+.page-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.page-title { font-family: 'Geist Mono', monospace; font-size: 15px; font-weight: 600; color: var(--ink); }
+.page-subtitle { font-size: 12px; color: var(--ink-dim); margin-top: 2px; }
+
+/* BUTTONS */
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: var(--radius);
+  font-size: 12.5px; font-family: 'Geist', sans-serif; font-weight: 500;
+  cursor: pointer; border: none; transition: all .12s; white-space: nowrap;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-secondary { background: var(--surface2); color: var(--ink-mid); border: 1px solid var(--border2); }
+.btn-secondary:hover { background: var(--surface3); color: var(--ink); }
+.btn-ghost { background: transparent; color: var(--ink-mid); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--surface2); color: var(--ink); }
+.btn-success { background: var(--green-dim); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+.btn-success:hover { background: rgba(34,197,94,0.18); }
+.btn-danger { background: var(--red-dim); color: var(--accent); border: 1px solid rgba(232,93,47,0.22); }
+.btn-danger:hover { background: rgba(232,93,47,0.2); }
+.btn-sm { padding: 5px 11px; font-size: 12px; }
+.btn-xs { padding: 3px 9px; font-size: 11px; }
+.btn-group { display: flex; gap: 5px; align-items: center; }
+
+/* STAT CARDS */
+.stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 16px 18px; position: relative; overflow: hidden;
+}
+.stat-card::after { content:''; position:absolute; bottom:0; left:0; right:0; height:2px; }
+.stat-card.c-green::after { background: var(--green); }
+.stat-card.c-gold::after  { background: var(--gold); }
+.stat-card.c-red::after   { background: var(--accent); }
+.stat-card.c-blue::after  { background: var(--blue); }
+.stat-icon {
+  width:30px; height:30px; border-radius:var(--radius);
+  display:flex; align-items:center; justify-content:center;
+  font-size:13px; margin-bottom:10px; font-family:'Geist Mono',monospace; font-weight:700;
+  color: var(--ink-dim);
+}
+.c-green .stat-icon { background: var(--green-dim); color: var(--green); }
+.c-gold .stat-icon  { background: var(--gold-dim);  color: var(--gold); }
+.c-red .stat-icon   { background: var(--red-dim);   color: var(--accent); }
+.c-blue .stat-icon  { background: var(--blue-dim);  color: var(--blue); }
+.stat-label { font-size:11px; color:var(--ink-dim); letter-spacing:.5px; text-transform:uppercase; margin-bottom:4px; }
+.stat-val   { font-family:'Geist Mono',monospace; font-size:20px; font-weight:600; color:var(--ink); letter-spacing:-.5px; }
+.stat-sub   { font-size:11px; color:var(--ink-dim); margin-top:4px; }
+
+/* TABLE */
+.table-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; margin-bottom:20px; }
+table { width:100%; border-collapse:collapse; }
+thead th {
+  background:var(--surface2); color:var(--ink-dim);
+  padding:10px 14px; text-align:left;
+  font-size:10.5px; font-family:'Geist Mono',monospace;
+  letter-spacing:1px; text-transform:uppercase; font-weight:500;
+  border-bottom:1px solid var(--border);
+}
+tbody tr { border-bottom:1px solid var(--border); transition:background .08s; }
+tbody tr:last-child { border-bottom:none; }
+tbody tr:hover { background:var(--surface2); }
+tbody td { padding:10px 14px; color:var(--ink); font-size:12.5px; }
+.mono { font-family:'Geist Mono',monospace; font-size:12px; }
+
+/* BADGES */
+.badge {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:2px 8px; border-radius:20px;
+  font-size:10.5px; font-weight:500; letter-spacing:.3px; text-transform:capitalize;
+}
+.badge::before { content:''; width:5px; height:5px; border-radius:50%; display:inline-block; }
+.badge.paid    { background:var(--green-dim); color:var(--green); border:1px solid rgba(34,197,94,0.2); }
+.badge.paid::before { background:var(--green); }
+.badge.pending { background:var(--gold-dim); color:var(--gold); border:1px solid rgba(245,158,11,0.2); }
+.badge.pending::before { background:var(--gold); }
+.badge.bad     { background:var(--red-dim); color:var(--accent); border:1px solid rgba(232,93,47,0.2); }
+.badge.bad::before { background:var(--accent); }
+
+/* FORM */
+.form-section {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:var(--radius-lg); padding:20px 22px; margin-bottom:14px;
+}
+.form-section-title {
+  font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase;
+  color:var(--ink-dim); margin-bottom:16px; padding-bottom:10px;
+  border-bottom:1px solid var(--border); font-family:'Geist Mono',monospace;
+}
+.form-grid { display:grid; gap:14px; }
+.fg-2 { grid-template-columns:1fr 1fr; }
+.fg-3 { grid-template-columns:1fr 1fr 1fr; }
+.form-group { display:flex; flex-direction:column; gap:5px; }
+.form-label { font-size:11px; font-weight:500; color:var(--ink-dim); letter-spacing:.5px; text-transform:uppercase; }
+.form-input, .form-select {
+  background:var(--surface2); border:1px solid var(--border);
+  border-radius:var(--radius); padding:8px 11px;
+  font-size:13px; font-family:'Geist',sans-serif;
+  color:var(--ink); outline:none; transition:border-color .12s,background .12s; width:100%;
+}
+.form-input:focus, .form-select:focus { border-color:var(--accent); background:var(--surface3); }
+.form-input::placeholder { color:var(--ink-dim); }
+.form-select option { background:var(--surface2); }
+
+/* ENTRY TABLE */
+.entry-wrap { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); overflow:hidden; margin-bottom:14px; }
+.entry-wrap .etbl-header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:11px 16px; background:var(--surface2); border-bottom:1px solid var(--border);
+}
+.entry-wrap .etbl-label { font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--ink-dim); font-family:'Geist Mono',monospace; }
+.entry-wrap table thead th { font-size:10px; padding:8px 10px; }
+.entry-wrap table tbody td { padding:4px 6px; }
+.entry-wrap td input,
+.entry-wrap td > select {
+  width:100%; background:transparent; border:1px solid transparent;
+  border-radius:4px; padding:5px 8px; font-size:12.5px;
+  font-family:'Geist',sans-serif; color:var(--ink); outline:none;
+  transition:border-color .12s,background .12s;
+}
+.entry-wrap td input:focus,
+.entry-wrap td > select:focus { border-color:var(--accent); background:var(--surface2); }
+.entry-wrap td > select option { background:#1f1f23; }
+.entry-wrap td input[readonly] { color:var(--green); font-family:'Geist Mono',monospace; font-weight:600; }
+.del-row-btn {
+  background:none; border:none; color:var(--ink-dim);
+  cursor:pointer; width:24px; height:24px; border-radius:4px;
+  font-size:13px; display:flex; align-items:center; justify-content:center;
+  transition:all .1s; margin:auto;
+}
+.del-row-btn:hover { background:var(--red-dim); color:var(--accent); }
+
+/* TOTALS */
+.totals-panel { display:flex; justify-content:flex-end; margin-bottom:20px; }
+.totals-box { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); min-width:290px; overflow:hidden; }
+.tot-row { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; border-bottom:1px solid var(--border); font-size:13px; }
+.tot-row:last-child { border-bottom:none; }
+.tot-row .lbl { color:var(--ink-mid); }
+.tot-row.grand { background:var(--accent-dim); }
+.tot-row.grand .lbl { color:var(--accent); font-weight:600; }
+.tot-row.grand .val { font-family:'Geist Mono',monospace; font-size:17px; font-weight:700; color:var(--accent); }
+
+/* FILTER BAR */
+.filter-bar { display:flex; gap:10px; margin-bottom:16px; flex-wrap:wrap; align-items:center; }
+.filter-bar .form-input, .filter-bar .form-select { width:auto; }
+
+/* STATUS SELECT */
+.status-sel {
+  border:1px solid var(--border); border-radius:4px; padding:3px 7px;
+  font-size:11.5px; background:var(--surface2); color:var(--ink-mid);
+  cursor:pointer; outline:none; font-family:'Geist',sans-serif;
+}
+
+/* INVOICE PREVIEW */
+#print-section {
+  display:none; background:#fff; color:#1a1612;
+  padding:36px 40px; border:1px solid var(--border);
+  border-radius:var(--radius-lg); box-shadow:var(--shadow-lg);
+  max-width:740px; margin:20px auto 0;
+  font-family:'Geist',sans-serif;
+}
+#print-section.show { display:block; }
+.inv-header { display:flex; justify-content:space-between; align-items:flex-start; padding-bottom:16px; margin-bottom:20px; border-bottom:2px solid #000; }
+.inv-brand h1 { font-family:'Geist Mono',monospace; font-size:20px; font-weight:700; color:#000; letter-spacing:-.3px; }
+.inv-brand p { font-size:11.5px; color:#444; margin-top:3px; }
+.inv-meta { text-align:right; font-size:12px; color:#444; }
+.inv-meta .inv-label { font-family:'Geist Mono',monospace; font-size:18px; font-weight:700; color:#000; display:block; margin-bottom:6px; letter-spacing:2px; }
+.inv-table { width:100%; border-collapse:collapse; font-size:12.5px; margin-bottom:18px; }
+.inv-table th { background:#000; color:#fff; padding:8px 12px; text-align:left; font-size:10px; letter-spacing:1px; text-transform:uppercase; font-family:'Geist Mono',monospace; }
+.inv-table td { padding:8px 12px; border-bottom:1px solid #ccc; color:#000; }
+.inv-table tr:nth-child(even) td { background:#f5f5f5; }
+.inv-totals { margin-left:auto; width:240px; }
+.inv-tr { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #ccc; font-size:13px; color:#000; }
+.inv-tr.grand { font-weight:700; font-size:15px; border-top:2px solid #000; border-bottom:none; padding-top:8px; margin-top:4px; color:#000; }
+.inv-footer { margin-top:28px; padding-top:12px; border-top:1px solid #ccc; font-size:11px; color:#555; display:flex; justify-content:space-between; }
+.inv-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:18px; padding-top:14px; border-top:1px solid var(--border); }
+
+/* MODAL */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(4px); z-index:500; align-items:center; justify-content:center; }
+.modal-overlay.show { display:flex; }
+.modal { background:var(--surface); border:1px solid var(--border2); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg); padding:24px 28px; width:480px; max-width:95vw; max-height:90vh; overflow-y:auto; animation:popIn .15s ease; }
+@keyframes popIn { from{transform:scale(.96) translateY(-8px);opacity:0} to{transform:none;opacity:1} }
+.modal-title { font-family:'Geist Mono',monospace; font-size:14px; font-weight:600; color:var(--ink); margin-bottom:20px; }
+.modal-footer { display:flex; justify-content:flex-end; gap:8px; margin-top:22px; }
+
+/* TOAST */
+#toast {
+  position:fixed; bottom:22px; right:22px;
+  background:var(--surface2); border:1px solid var(--border2); color:var(--ink);
+  padding:10px 18px; border-radius:var(--radius); font-size:12.5px;
+  box-shadow:var(--shadow-lg); z-index:999;
+  opacity:0; transform:translateY(8px); transition:opacity .2s,transform .2s;
+  pointer-events:none; display:flex; align-items:center; gap:8px;
+}
+#toast.show { opacity:1; transform:none; }
+
+/* EMPTY */
+.empty-state { text-align:center; padding:48px 20px; color:var(--ink-dim); font-size:13px; }
+.empty-icon { font-size:30px; margin-bottom:10px; opacity:.5; }
+
+/* SECTION ROW */
+.section-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.section-label { font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--ink-dim); font-family:'Geist Mono',monospace; }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width:5px; height:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+
+/* PRINT */
+@page {
+  margin: 12mm 15mm;
+  size: A4;
+}
+@media print {
+  html, body, .window, .app-body, .main, .sidebar, .titlebar, .mobile-nav {
+    background: #fff !important;
+    color: #000 !important;
+  }
+  body * { visibility: hidden !important; }
+  #print-section, #print-section * { visibility: visible !important; }
+  #print-section {
+    position: fixed !important;
+    top: 0 !important; left: 0 !important;
+    width: 100% !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 20px 24px !important;
+    max-width: 100% !important;
+    color: #000 !important;
+  }
+  #print-section .inv-actions { visibility: hidden !important; display:none !important; }
+  .inv-header { border-bottom: 2px solid #000 !important; }
+  .inv-brand h1 { color: #000 !important; }
+  .inv-brand p  { color: #555 !important; }
+  .inv-meta, .inv-meta * { color: #444 !important; }
+  .inv-meta .inv-label { color: #000 !important; }
+  .inv-table th { background: #000 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .inv-table td { color: #000 !important; border-bottom: 1px solid #ccc !important; }
+  .inv-table tr:nth-child(even) td { background: #f5f5f5 !important; }
+  .inv-tr, .inv-tr * { color: #000 !important; }
+  .inv-footer, .inv-footer * { color: #555 !important; }
+}
+
+/* ══════════════════════════════════════════════
+   RESPONSIVE — Tablet & Mobile
+══════════════════════════════════════════════ */
+
+/* ── Tablet (≤1024px) ── */
+@media(max-width:1024px) {
+  :root { --sidebar: 170px; }
+  .stats-grid { grid-template-columns: repeat(2,1fr); }
+  tbody td { padding: 8px 10px; font-size: 12px; }
+  thead th { padding: 8px 10px; }
+  .page { padding: 18px 20px; }
+}
+
+/* ── Mobile (≤768px) ── */
+@media(max-width:768px) {
+  :root { --sidebar: 0px; }
+
+  body { overflow: hidden; font-size: 13px; }
+
+  /* Hide sidebar, show bottom nav */
+  .sidebar { display: none; }
+
+  /* Bottom nav bar */
+  .mobile-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 58px;
+    background: #111113;
+    border-top: 1px solid var(--border);
+    z-index: 300;
+    align-items: stretch;
+  }
+  .mobile-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: var(--ink-dim);
+    font-size: 9px;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: color .12s;
+    border: none;
+    background: none;
+    padding: 0;
+  }
+  .mobile-nav-item svg { width: 18px; height: 18px; }
+  .mobile-nav-item.active { color: var(--accent); }
+  .mobile-nav-item:active { background: var(--surface2); }
+
+  /* Titlebar smaller on mobile */
+  .titlebar { height: 44px; padding: 0 12px; }
+  .titlebar-title { font-size: 10.5px; }
+
+  /* Main area — leave space for bottom nav */
+  .main {
+    padding-bottom: 58px;
+    height: calc(100vh - 44px);
+  }
+
+  /* Page padding */
+  .page { padding: 14px 12px; }
+
+  /* Page header stack on small */
+  .page-hdr {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+  }
+  .page-hdr .btn-group { width: 100%; }
+  .page-hdr .btn-group .btn { flex: 1; justify-content: center; }
+  .page-hdr > .btn { width: 100%; justify-content: center; }
+
+  /* Stats 2-col */
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+  .stat-card { padding: 12px 14px; }
+  .stat-val { font-size: 17px; }
+
+  /* Forms stack */
+  .fg-2, .fg-3 { grid-template-columns: 1fr; }
+  .form-section { padding: 14px 14px; }
+
+  /* Filter bar */
+  .filter-bar { gap: 7px; }
+  .filter-bar .form-input,
+  .filter-bar .form-select { width: 100%; min-width: unset; }
+
+  /* Tables — horizontal scroll */
+  .table-card { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 520px; }
+
+  /* Entry table */
+  .entry-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .entry-wrap table { min-width: 480px; }
+
+  /* Totals panel */
+  .totals-panel { justify-content: stretch; }
+  .totals-box { min-width: unset; width: 100%; }
+
+  /* Invoice preview */
+  #print-section { padding: 18px 14px; margin: 12px 0 0; }
+  .inv-header { flex-direction: column; gap: 10px; }
+  .inv-meta { text-align: left; }
+  .inv-actions { flex-direction: column; }
+  .inv-actions .btn { width: 100%; justify-content: center; }
+
+  /* Modal */
+  .modal { padding: 18px 16px; }
+
+  /* Toast */
+  #toast { bottom: 70px; right: 12px; left: 12px; font-size: 12px; }
+
+  /* Buttons in table rows */
+  .btn-group { flex-wrap: wrap; gap: 3px; }
+  .btn-xs { padding: 3px 7px; font-size: 10.5px; }
+}
+
+/* ── Small phones (≤420px) ── */
+@media(max-width:420px) {
+  .page { padding: 10px 10px; }
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 6px; }
+  .stat-val { font-size: 15px; }
+  .stat-card { padding: 10px 11px; }
+  .page-title { font-size: 13px; }
+  .titlebar-title { display: none; }
+}
+</style>
+</head>
+<body>
+<div class="window">
+
+  <!-- TITLEBAR -->
+  <div class="titlebar">
+    <div class="titlebar-dots">
+      <span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span>
+    </div>
+    <div class="titlebar-title">Amrut Electroplating &mdash; Billing System</div>
+    <div class="titlebar-tag">v2.0</div>
+  </div>
+
+  <div class="app-body">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-logo" style="display:flex;align-items:center;gap:10px;padding:12px 14px;">
+        <svg width="44" height="44" viewBox="0 0 680 680" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
+          <circle cx="340" cy="340" r="320" fill="white" stroke="#1a237e" stroke-width="10"/>
+          <ellipse cx="340" cy="270" rx="145" ry="155" fill="#1a3ab5"/>
+          <ellipse cx="340" cy="270" rx="90" ry="98" fill="white"/>
+          <ellipse cx="340" cy="300" rx="205" ry="42" fill="none" stroke="#2962ff" stroke-width="14" stroke-linecap="round" transform="rotate(-15 340 300)"/>
+          <circle cx="514" cy="212" r="16" fill="#2979ff"/>
+          <rect x="308" y="208" width="64" height="80" rx="6" fill="white" stroke="#c5cae9" stroke-width="1.5"/>
+          <text x="333" y="225" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#1a237e" text-anchor="middle">BILL</text>
+          <rect x="316" y="228" width="36" height="3" rx="1.5" fill="#c5cae9"/>
+          <rect x="316" y="234" width="30" height="3" rx="1.5" fill="#c5cae9"/>
+          <rect x="312" y="242" width="52" height="34" rx="3" fill="none" stroke="#90a4e0" stroke-width="1.2"/>
+          <line x1="312" y1="253" x2="364" y2="253" stroke="#90a4e0" stroke-width="1"/>
+          <line x1="312" y1="264" x2="364" y2="264" stroke="#90a4e0" stroke-width="1"/>
+          <line x1="340" y1="242" x2="340" y2="276" stroke="#90a4e0" stroke-width="1"/>
+          <rect x="341" y="243" width="24" height="10" rx="1" fill="#2962ff" opacity="0.7"/>
+          <text x="260" y="488" font-family="Arial,sans-serif" font-size="62" font-weight="800" fill="#1a237e">Orbit</text>
+          <text x="420" y="488" font-family="Arial,sans-serif" font-size="62" font-weight="800" fill="#2962ff">Bills</text>
+          <text x="340" y="530" font-family="Arial,sans-serif" font-size="22" font-weight="400" fill="#78909c" text-anchor="middle" letter-spacing="6">SOFTWARE</text>
+          <circle cx="340" cy="340" r="320" fill="none" stroke="#1a237e" stroke-width="8"/>
+        </svg>
+        <div>
+          <div class="sidebar-logo-name">Orbit Bills</div>
+          <div class="sidebar-logo-sub">Billing System</div>
+        </div>
+      </div>
+      <div class="sidebar-nav">
+        <div class="sidebar-group">
+          <div class="sidebar-group-label">Main</div>
+          <div class="nav-item active" id="nav-dashboard" onclick="showPage('dashboard')">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+            Dashboard
+          </div>
+          <div class="nav-item" id="nav-new-bill" onclick="showPage('new-bill')">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h4"/></svg>
+            New Bill
+          </div>
+          <div class="nav-item" id="nav-bills" onclick="showPage('bills')">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h12M2 8h12M2 13h8"/></svg>
+            All Bills
+          </div>
+        </div>
+        <div class="sidebar-group">
+          <div class="sidebar-group-label">Master Data</div>
+          <div class="nav-item" id="nav-customers" onclick="showPage('customers')">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5"/></svg>
+            Customers
+          </div>
+          <div class="nav-item" id="nav-items" onclick="showPage('items')">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 5l6-3 6 3v6l-6 3-6-3V5z"/><path d="M8 2v12M2 5l6 3 6-3"/></svg>
+            Items
+          </div>
+          <div class="nav-item" id="nav-finishes" onclick="showPage('finishes')">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5"/><path d="M8 3v2M8 11v2M3 8h2M11 8h2"/></svg>
+            Finishes
+          </div>
+        </div>
+        <div class="sidebar-group">
+          <div class="sidebar-group-label">System</div>
+          <div class="nav-item" id="nav-settings" onclick="showPage('settings')">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
+            Settings
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+
+      <!-- DASHBOARD -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-hdr">
+          <div>
+            <div class="page-title">Dashboard</div>
+            <div class="page-subtitle" id="dash-month"></div>
+          </div>
+          <button class="btn btn-primary" onclick="showPage('new-bill')">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2"><path d="M5.5 1v9M1 5.5h9"/></svg>
+            New Bill
+          </button>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card c-green">
+            <div class="stat-icon">₹</div>
+            <div class="stat-label">Total Billed</div>
+            <div class="stat-val" id="stat-total">₹0.00</div>
+            <div class="stat-sub" id="stat-bills-count">0 bills</div>
+          </div>
+          <div class="stat-card c-gold">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-label">Pending</div>
+            <div class="stat-val" id="stat-pending">₹0.00</div>
+            <div class="stat-sub" id="stat-pending-count">awaiting</div>
+          </div>
+          <div class="stat-card c-red">
+            <div class="stat-icon">✕</div>
+            <div class="stat-label">Baki</div>
+            <div class="stat-val" id="stat-bad">₹0.00</div>
+            <div class="stat-sub">written off</div>
+          </div>
+          <div class="stat-card c-blue">
+            <div class="stat-icon">✓</div>
+            <div class="stat-label">Received</div>
+            <div class="stat-val" id="stat-received">₹0.00</div>
+            <div class="stat-sub">paid bills</div>
+          </div>
+        </div>
+        <div class="section-row">
+          <span class="section-label">Recent Bills</span>
+        </div>
+        <div class="table-card">
+          <table>
+            <thead><tr><th>#</th><th>Bill #</th><th>Customer</th><th>Month</th><th>Items</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="dash-bill-list">
+              <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🧾</div>No bills yet — create your first one!</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- NEW BILL -->
+      <div class="page" id="page-new-bill">
+        <div class="page-hdr">
+          <div>
+            <div class="page-title" id="bill-form-title">New Bill</div>
+            <div class="page-subtitle">Fill in the details below</div>
+          </div>
+          <div class="btn-group">
+            <button class="btn btn-ghost" onclick="showPage('bills')">Cancel</button>
+            <button class="btn btn-secondary" onclick="previewBill()">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2"/><path d="M1 6s1.8-4 5-4 5 4 5 4-1.8 4-5 4-5-4-5-4z"/></svg>
+              Preview
+            </button>
+            <button class="btn btn-success" onclick="saveBill()">
+              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" stroke-width="2"><path d="M1.5 5.5l3 3 5-5"/></svg>
+              Save Bill
+            </button>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <div class="form-section-title">Bill Details</div>
+          <div class="form-grid fg-2" style="margin-bottom:14px;">
+            <div class="form-group">
+              <label class="form-label">Month</label>
+              <input type="text" id="bill-month" class="form-input" placeholder="e.g. Apr-26" />
+            </div>
+          </div>
+          <div class="form-grid fg-2">
+            <div class="form-group">
+              <label class="form-label">Customer / Party</label>
+              <input type="text" id="bill-customer" class="form-input" placeholder="Customer name" list="customer-list" />
+              <datalist id="customer-list"></datalist>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Notes / Remarks</label>
+              <input type="text" id="bill-notes" class="form-input" placeholder="Optional" />
+            </div>
+          </div>
+        </div>
+
+        <div class="entry-wrap">
+          <div class="etbl-header">
+            <span class="etbl-label">Bill Items</span>
+            <button class="btn btn-secondary btn-sm" onclick="addRow()">+ Add Row</button>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width:90px;">Date</th>
+                <th>Item Name</th>
+                <th style="width:140px;">Finish</th>
+                <th style="width:85px;">Pcs / Kg</th>
+                <th style="width:85px;">Rate (₹)</th>
+                <th style="width:105px;">Amount (₹)</th>
+                <th style="width:36px;"></th>
+              </tr>
+            </thead>
+            <tbody id="item-rows"></tbody>
+          </table>
+        </div>
+
+        <div class="totals-panel">
+          <div class="totals-box">
+            <div class="tot-row"><span class="lbl">Subtotal</span><span class="mono" id="t-subtotal">₹0.00</span></div>
+            <div class="tot-row">
+              <span class="lbl">Baki (Deduction)</span>
+              <input type="number" id="bad-debt" placeholder="0.00" min="0"
+                style="width:90px;background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px;text-align:right;color:var(--ink);outline:none;font-family:'Geist Mono',monospace;"
+                oninput="recalc()" />
+            </div>
+            <div class="tot-row grand"><span class="lbl">TOTAL</span><span class="val" id="t-total">₹0.00</span></div>
+          </div>
+        </div>
+
+        <!-- INVOICE PREVIEW -->
+        <div id="print-section">
+          <div class="inv-header">
+            <div class="inv-brand">
+              <h1 id="p-company">AMRUT ELECTROPLATING</h1>
+              <p id="p-subtitle" style="font-size:12px;color:#555;margin-top:2px;font-weight:500;"></p>
+              <p id="p-address" style="font-size:11px;color:#888;margin-top:2px;"></p>
+            </div>
+            <div class="inv-meta">
+              <span class="inv-label">INVOICE</span>
+              Month: <span id="p-month"></span><br>
+              To: <strong id="p-customer"></strong>
+            </div>
+          </div>
+          <table class="inv-table">
+            <thead><tr><th>Date</th><th>Item</th><th>Finish</th><th style="text-align:right;">Pcs/Kg</th><th style="text-align:right;">Rate</th><th style="text-align:right;">Amount</th></tr></thead>
+            <tbody id="print-rows"></tbody>
+          </table>
+          <div class="inv-totals">
+            <div class="inv-tr"><span>Subtotal</span><span id="p-subtotal"></span></div>
+            <div class="inv-tr"><span>Baki</span><span id="p-bad"></span></div>
+            <div class="inv-tr grand"><span>TOTAL</span><span id="p-total"></span></div>
+          </div>
+          <div class="inv-footer">
+            <span id="p-gst"></span>
+            <span>Authorised Signature</span>
+          </div>
+          <div class="inv-actions">
+            <button class="btn btn-ghost btn-sm" onclick="printInvoicePopup()">🖨 Print</button>
+            <button class="btn btn-primary btn-sm" onclick="downloadInvoice()">⬇ Download Invoice</button>
+            <button class="btn btn-sm" onclick="sendWhatsApp()" style="background:#25D366;color:#fff;border:none;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+              WhatsApp pe Bhejo
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ALL BILLS -->
+      <div class="page" id="page-bills">
+        <div class="page-hdr">
+          <div>
+            <div class="page-title">All Bills</div>
+            <div class="page-subtitle" id="bills-count-label">—</div>
+          </div>
+          <button class="btn btn-primary" onclick="showPage('new-bill')">+ New Bill</button>
+        </div>
+        <div class="filter-bar">
+          <input type="text" id="search-bills" class="form-input" placeholder="🔍  Search customer…" oninput="renderBills()" style="min-width:200px;" />
+          <select id="filter-month" class="form-select" onchange="renderBills()" style="min-width:130px;"><option value="">All Months</option></select>
+          <select id="filter-status" class="form-select" onchange="renderBills()" style="min-width:120px;">
+            <option value="">All Status</option>
+            <option value="paid">Paid</option>
+            <option value="pending">Pending</option>
+            <option value="bad">Baki</option>
+          </select>
+        </div>
+        <div class="table-card">
+          <table>
+            <thead><tr><th>Bill #</th><th>Customer</th><th>Month</th><th>Items</th><th>Baki</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody id="all-bill-list">
+              <tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📂</div>No bills yet.</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CUSTOMERS -->
+      <div class="page" id="page-customers">
+        <div class="page-hdr">
+          <div>
+            <div class="page-title">Customers</div>
+            <div class="page-subtitle">Manage your customer / party list</div>
+          </div>
+          <button class="btn btn-primary" onclick="openCustomerModal()">+ Add Customer</button>
+        </div>
+        <div class="table-card">
+          <table>
+            <thead><tr><th>#</th><th>Name</th><th>Contact</th><th>Address</th><th>Actions</th></tr></thead>
+            <tbody id="customer-list-tbl">
+              <tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🏭</div>No customers yet.</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ITEMS -->
+      <div class="page" id="page-items">
+        <div class="page-hdr">
+          <div>
+            <div class="page-title">Item Master</div>
+            <div class="page-subtitle">Default items and rates</div>
+          </div>
+          <button class="btn btn-primary" onclick="openItemModal()">+ Add Item</button>
+        </div>
+        <div class="table-card">
+          <table>
+            <thead><tr><th>#</th><th>Item Name</th><th>Default Finish</th><th>Default Rate</th><th>Actions</th></tr></thead>
+            <tbody id="item-master-list">
+              <tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📦</div>No items yet.</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- FINISHES -->
+      <div class="page" id="page-finishes">
+        <div class="page-hdr">
+          <div>
+            <div class="page-title">Finish Master</div>
+            <div class="page-subtitle">Manage finish types used in bills</div>
+          </div>
+          <button class="btn btn-primary" onclick="openFinishModal()">+ Add Finish</button>
+        </div>
+        <div class="table-card">
+          <table>
+            <thead><tr><th>#</th><th>Finish Name</th><th>Actions</th></tr></thead>
+            <tbody id="finish-master-list">
+              <tr><td colspan="3"><div class="empty-state"><div class="empty-icon">✨</div>No finishes yet.</div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="page" id="page-settings">
+        <div class="page-hdr">
+          <div>
+            <div class="page-title">Company Settings</div>
+            <div class="page-subtitle">Appears on all invoices</div>
+          </div>
+          <button class="btn btn-success" onclick="saveSettings()">Save Settings</button>
+        </div>
+        <div class="form-section" style="max-width:540px;">
+          <div class="form-section-title">Company Info</div>
+          <div class="form-grid fg-2" style="margin-bottom:14px;">
+            <div class="form-group"><label class="form-label">Company Name</label><input type="text" id="set-company" class="form-input" /></div>
+            <div class="form-group"><label class="form-label">Sub-title / Type</label><input type="text" id="set-subtitle" class="form-input" /></div>
+          </div>
+          <div class="form-grid fg-2" style="margin-bottom:14px;">
+            <div class="form-group"><label class="form-label">Address</label><input type="text" id="set-address" class="form-input" /></div>
+            <div class="form-group"><label class="form-label">Phone</label><input type="text" id="set-phone" class="form-input" /></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">GST / PAN Number</label>
+            <input type="text" id="set-gst" class="form-input" style="max-width:260px;" />
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /main -->
+  </div><!-- /app-body -->
+</div><!-- /window -->
+
+<!-- CUSTOMER MODAL -->
+<div class="modal-overlay" id="modal-customer">
+  <div class="modal">
+    <div class="modal-title">Add / Edit Customer</div>
+    <input type="hidden" id="cust-edit-idx" value="-1" />
+    <div class="form-grid fg-2" style="margin-bottom:12px;">
+      <div class="form-group"><label class="form-label">Name</label><input type="text" id="cust-name" class="form-input" /></div>
+      <div class="form-group"><label class="form-label">Contact</label><input type="text" id="cust-contact" class="form-input" /></div>
+    </div>
+    <div class="form-group"><label class="form-label">Address</label><input type="text" id="cust-address" class="form-input" /></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-customer')">Cancel</button>
+      <button class="btn btn-success" onclick="saveCustomer()">Save Customer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ITEM MODAL -->
+<div class="modal-overlay" id="modal-item">
+  <div class="modal">
+    <div class="modal-title">Add / Edit Item</div>
+    <input type="hidden" id="item-edit-idx" value="-1" />
+    <div class="form-grid fg-2" style="margin-bottom:12px;">
+      <div class="form-group"><label class="form-label">Item Name</label><input type="text" id="mi-name" class="form-input" /></div>
+      <div class="form-group">
+        <label class="form-label">Default Finish</label>
+        <input type="text" id="mi-finish" class="form-input" placeholder="e.g. Gold, ANT., custom…" list="mi-finish-list" />
+        <datalist id="mi-finish-list">
+          <option value="Gold">
+          <option value="Rose Gold">
+          <option value="Silver">
+          <option value="Copper">
+          <option value="Nikal">
+          <option value="ANT.">
+        </datalist>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Default Rate (₹)</label><input type="number" id="mi-rate" class="form-input" placeholder="0.00" style="max-width:180px;" /></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-item')">Cancel</button>
+      <button class="btn btn-success" onclick="saveItem()">Save Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- FINISH MODAL -->
+<div class="modal-overlay" id="modal-finish">
+  <div class="modal">
+    <div class="modal-title">Add / Edit Finish</div>
+    <input type="hidden" id="finish-edit-idx" value="-1" />
+    <div class="form-group" style="margin-bottom:16px;">
+      <label class="form-label">Finish Name</label>
+      <input type="text" id="finish-name" class="form-input" placeholder="e.g. Gold, Chrome, Black…" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-finish')">Cancel</button>
+      <button class="btn btn-success" onclick="saveFinish()">Save Finish</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal" style="width:340px;">
+    <div class="modal-title" id="confirm-msg">Are you sure?</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="confirmResolve(false)">Cancel</button>
+      <button class="btn btn-danger" onclick="confirmResolve(true)">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- MOBILE BOTTOM NAV -->
+<nav class="mobile-nav" id="mobileNav" style="display:none;">
+  <button class="mobile-nav-item active" id="mnav-dashboard" onclick="showPage('dashboard')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+    Home
+  </button>
+  <button class="mobile-nav-item" id="mnav-new-bill" onclick="showPage('new-bill')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="12" height="14" rx="1.5"/><path d="M5 5h6M5 8h6M5 11h4"/></svg>
+    New Bill
+  </button>
+  <button class="mobile-nav-item" id="mnav-bills" onclick="showPage('bills')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h12M2 8h12M2 13h8"/></svg>
+    Bills
+  </button>
+  <button class="mobile-nav-item" id="mnav-customers" onclick="showPage('customers')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="5" r="3"/><path d="M2 14c0-3.314 2.686-5 6-5s6 1.686 6 5"/></svg>
+    Clients
+  </button>
+  <button class="mobile-nav-item" id="mnav-settings" onclick="showPage('settings')">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41"/></svg>
+    Settings
+  </button>
+</nav>
+
+<div id="toast"><span id="toast-msg"></span></div>
+
+<script>
+// ─── DATA ────────────────────────────────────────────────────────────────
+let data = JSON.parse(localStorage.getItem('aebilling_v2') || '{}');
+data.bills     = data.bills     || [];
+data.customers = data.customers || [{ name: 'Amrut Ele.', contact: '', address: '' }];
+data.items     = data.items     || [
+  { name: 'BHUNGRA', finish: 'ANT.', rate: 5.00 },
+  { name: 'DATTI',   finish: 'ANT.', rate: 2.25 },
+  { name: 'TOPA',    finish: 'ANT.', rate: 2.75 },
+  { name: 'ZARI',    finish: 'ANT.', rate: 2.75 },
+];
+data.finishes  = data.finishes  || ['Gold','Rose Gold','Silver','Copper','Nikal','ANT.'];
+data.settings = data.settings || {
+  company: 'AMRUT ELECTROPLATING', subtitle: '',
+  address: '', phone: '', gst: ''
+};
+// Remove subtitle if it still has old default value
+if (data.settings.subtitle === 'Electroplating & Metal Finishing') {
+  data.settings.subtitle = '';
+  save();
+}
+function save() { localStorage.setItem('aebilling_v2', JSON.stringify(data)); }
+
+// ─── NAVIGATION ──────────────────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.mobile-nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  const nb = document.getElementById('nav-' + id);
+  if (nb) nb.classList.add('active');
+  const mnb = document.getElementById('mnav-' + id);
+  if (mnb) mnb.classList.add('active');
+  document.getElementById('print-section').classList.remove('show');
+  document.querySelector('.main').scrollTo(0, 0);
+  if (id === 'dashboard') renderDashboard();
+  if (id === 'bills')     renderBills();
+  if (id === 'customers') renderCustomers();
+  if (id === 'items')     renderItemMaster();
+  if (id === 'finishes')  renderFinishMaster();
+  if (id === 'settings')  loadSettings();
+  if (id === 'new-bill' && editingBillIdx === null) resetBillForm();
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────────────────────
+function renderDashboard() {
+  const now = new Date();
+  document.getElementById('dash-month').textContent = now.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+  const total    = data.bills.reduce((s,b) => s+b.total, 0);
+  const pending  = data.bills.filter(b => b.status==='pending');
+  const bad      = data.bills.reduce((s,b) => s+(b.badDebt||0), 0);
+  const received = data.bills.filter(b => b.status==='paid').reduce((s,b)=>s+b.total,0);
+  document.getElementById('stat-total').textContent         = fmt(total);
+  document.getElementById('stat-bills-count').textContent   = data.bills.length + ' bills total';
+  document.getElementById('stat-pending').textContent       = fmt(pending.reduce((s,b)=>s+b.total,0));
+  document.getElementById('stat-pending-count').textContent = pending.length + ' awaiting';
+  document.getElementById('stat-bad').textContent           = fmt(bad);
+  document.getElementById('stat-received').textContent      = fmt(received);
+
+  const tbody  = document.getElementById('dash-bill-list');
+  const recent = [...data.bills].reverse().slice(0, 8);
+  if (!recent.length) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">🧾</div>No bills yet — create your first one!</div></td></tr>'; return;
+  }
+  tbody.innerHTML = recent.map((b, i) => {
+    const ri = data.bills.indexOf(b);
+    return `<tr>
+      <td class="mono" style="color:var(--ink-dim);">${data.bills.length - i}</td>
+      <td style="font-family:'Geist Mono',monospace;color:var(--ink-dim);">#${ri+1}</td>
+      <td><strong>${b.customer}</strong></td>
+      <td style="color:var(--ink-dim);">${b.month}</td>
+      <td style="color:var(--ink-dim);">${b.items.length}</td>
+      <td class="mono">${fmt(b.total)}</td>
+      <td><span class="badge ${b.status}">${b.status}</span></td>
+      <td><div class="btn-group">
+        <button class="btn btn-ghost btn-xs" onclick="viewBill(${ri})">View</button>
+        <button class="btn btn-secondary btn-xs" onclick="editBill(${ri})">Edit</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── BILL FORM ────────────────────────────────────────────────────────────
+let editingBillIdx = null;
+let rowCount = 0;
+
+function resetBillForm() {
+  editingBillIdx = null; rowCount = 0;
+  document.getElementById('bill-form-title').textContent = 'New Bill';
+  document.getElementById('bill-month').value    = fmtMonth(new Date());
+  document.getElementById('bill-customer').value = '';
+  document.getElementById('bill-notes').value    = '';
+  document.getElementById('bad-debt').value      = '';
+  document.getElementById('item-rows').innerHTML = '';
+  addRow(); addRow(); addRow();
+  recalc(); refreshCustomerDatalist();
+}
+
+function fmtMonth(d) {
+  return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()] + '-' + String(d.getFullYear()).slice(2);
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  const parts = d.split('-');
+  if (parts.length !== 3) return d;
+  return parts[2] + '-' + parts[1] + '-' + parts[0];
+}
+
+function finishOptions() {
+  return (data.finishes||[]).map(f=>`<option value="${f}">`).join('');
+}
+
+function addRow() {
+  rowCount++;
+  const rid = 'row-' + rowCount;
+  const itemOpts = data.items.map(i=>`<option value="${i.name}">`).join('');
+  const tr = document.createElement('tr');
+  tr.id = rid;
+  tr.innerHTML = `
+    <td><input type="date" style="font-size:11.5px;padding:4px 6px;" /></td>
+    <td>
+      <input type="text" list="idl-${rowCount}" placeholder="Item name" oninput="autoFill(this,'${rid}')" />
+      <datalist id="idl-${rowCount}">${itemOpts}</datalist>
+    </td>
+    <td>
+      <input type="text" list="fnl-${rowCount}" placeholder="Finish" oninput="recalc()" />
+      <datalist id="fnl-${rowCount}">${finishOptions()}</datalist>
+    </td>
+    <td><input type="number" placeholder="0" min="0" step="0.01" oninput="rowCalc('${rid}')" /></td>
+    <td><input type="number" placeholder="0.00" min="0" step="0.01" oninput="rowCalc('${rid}')" /></td>
+    <td><input type="number" placeholder="0.00" readonly /></td>
+    <td style="text-align:center;"><button type="button" class="del-row-btn" onclick="delRow('${rid}')">✕</button></td>
+  `;
+  document.getElementById('item-rows').appendChild(tr);
+}
+
+function getF(rid) { return document.getElementById(rid).querySelectorAll('td input, td select'); }
+
+function autoFill(input, rid) {
+  const name  = input.value.trim().toUpperCase();
+  const found = data.items.find(i => i.name.toUpperCase() === name);
+  if (found) { const f=getF(rid); f[2].value=found.finish||''; f[4].value=found.rate||''; rowCalc(rid); }
+}
+
+function rowCalc(rid) {
+  const f = getF(rid);
+  f[5].value = ((parseFloat(f[3].value)||0) * (parseFloat(f[4].value)||0)).toFixed(2);
+  recalc();
+}
+
+function delRow(rid) { document.getElementById(rid).remove(); recalc(); }
+
+function recalc() {
+  let sub = 0;
+  document.querySelectorAll('#item-rows tr').forEach(tr => {
+    const f = tr.querySelectorAll('td input, td select');
+    sub += parseFloat(f[5]?.value) || 0;
+  });
+  const bad = parseFloat(document.getElementById('bad-debt').value) || 0;
+  document.getElementById('t-subtotal').textContent = fmt(sub);
+  document.getElementById('t-total').textContent    = fmt(sub + bad);
+}
+
+function getFormItems() {
+  const items = [];
+  document.querySelectorAll('#item-rows tr').forEach(tr => {
+    const f = tr.querySelectorAll('td input, td select');
+    const name = f[1]?.value?.trim();
+    if (!name) return;
+    items.push({ date: f[0]?.value||'', name, finish: f[2]?.value||'', qty: parseFloat(f[3]?.value)||0, rate: parseFloat(f[4]?.value)||0, amount: parseFloat(f[5]?.value)||0 });
+  });
+  return items;
+}
+
+function saveBill() {
+  const customer = document.getElementById('bill-customer').value.trim();
+  if (!customer) { toast('Customer is required.'); return; }
+  const items = getFormItems();
+  if (!items.length) { toast('Add at least one item.'); return; }
+  const sub = items.reduce((s,i)=>s+i.amount,0);
+  const bad = parseFloat(document.getElementById('bad-debt').value)||0;
+  const bill = {
+    date: '',
+    month: document.getElementById('bill-month').value,
+    customer, notes: document.getElementById('bill-notes').value,
+    items, subtotal: sub, badDebt: bad, total: sub+bad,
+    status: 'pending', createdAt: new Date().toISOString(),
+  };
+  if (editingBillIdx !== null) {
+    bill.status = data.bills[editingBillIdx].status;
+    data.bills[editingBillIdx] = bill; toast('Bill updated!');
+  } else { data.bills.push(bill); toast('Bill saved!'); }
+  save(); editingBillIdx = null; showPage('bills');
+}
+
+function editBill(idx) {
+  editingBillIdx = idx;
+  const b = data.bills[idx];
+  rowCount = 0;
+  document.getElementById('bill-form-title').textContent = 'Edit Bill';
+  document.getElementById('bill-month').value    = b.month;
+  document.getElementById('bill-customer').value = b.customer;
+  document.getElementById('bill-notes').value    = b.notes||'';
+  document.getElementById('bad-debt').value      = b.badDebt||'';
+  document.getElementById('item-rows').innerHTML = '';
+  b.items.forEach(item => {
+    addRow();
+    const rid = 'row-' + rowCount;
+    const f = document.getElementById(rid).querySelectorAll('td input, td select');
+    f[0].value=item.date||''; f[1].value=item.name; f[2].value=item.finish; f[3].value=item.qty; f[4].value=item.rate; f[5].value=item.amount.toFixed(2);
+  });
+  recalc(); refreshCustomerDatalist(); showPage('new-bill');
+}
+
+function populateInvoice(b, s) {
+  const settings = s || data.settings || {};
+  document.getElementById('p-company').textContent  = settings.company || '';
+  document.getElementById('p-subtitle').textContent = settings.subtitle || '';
+  document.getElementById('p-address').textContent  = settings.address || '';
+  document.getElementById('p-month').textContent    = b.month || '';
+  document.getElementById('p-customer').textContent = b.customer || '';
+  document.getElementById('p-subtotal').textContent = fmt(b.subtotal);
+  document.getElementById('p-bad').textContent      = fmt(b.badDebt||0);
+  document.getElementById('p-total').textContent    = fmt(b.total);
+  document.getElementById('p-gst').textContent      = settings.gst ? 'GST/PAN: '+settings.gst : '';
+  document.getElementById('print-rows').innerHTML = b.items.map((it)=>`
+    <tr>
+      <td>${fmtDate(it.date)}</td><td>${it.name}</td><td>${it.finish}</td>
+      <td style="text-align:right;font-family:monospace;">${it.qty.toFixed(2)}</td>
+      <td style="text-align:right;font-family:monospace;">${fmt(it.rate)}</td>
+      <td style="text-align:right;font-family:monospace;">${fmt(it.amount)}</td>
+    </tr>`).join('');
+}
+
+function viewBill(idx) {
+  populateInvoice(data.bills[idx], data.settings);
+  // Make sure we are on new-bill page (which contains print-section)
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.mobile-nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-new-bill').classList.add('active');
+  const nb = document.getElementById('nav-new-bill');
+  if (nb) nb.classList.add('active');
+  const ps = document.getElementById('print-section');
+  ps.classList.add('show');
+  setTimeout(() => {
+    const main = document.querySelector('.main');
+    if (main) main.scrollTop = main.scrollHeight;
+  }, 80);
+}
+
+function previewBill() {
+  const items = getFormItems();
+  if (!items.length) { toast('Add items first.'); return; }
+  const sub = items.reduce((s,i)=>s+i.amount,0);
+  const bad = parseFloat(document.getElementById('bad-debt').value)||0;
+  populateInvoice({
+    date: '',
+    month: document.getElementById('bill-month').value,
+    customer: document.getElementById('bill-customer').value,
+    items, subtotal: sub, badDebt: bad, total: sub+bad,
+  }, data.settings);
+  const ps = document.getElementById('print-section');
+  ps.classList.add('show');
+  setTimeout(() => {
+    const main = document.querySelector('.main');
+    if (main) main.scrollTop = main.scrollHeight;
+  }, 80);
+}
+
+// ─── ALL BILLS ────────────────────────────────────────────────────────────
+function renderBills() {
+  const q  = (document.getElementById('search-bills').value||'').toLowerCase();
+  const fm = document.getElementById('filter-month').value;
+  const fs = document.getElementById('filter-status').value;
+  const months = [...new Set(data.bills.map(b=>b.month))];
+  const msel = document.getElementById('filter-month'), cur = msel.value;
+  msel.innerHTML = '<option value="">All Months</option>' + months.map(m=>`<option value="${m}"${m===cur?' selected':''}>${m}</option>`).join('');
+  let bills = data.bills.filter(b => {
+    if (q  && !b.customer.toLowerCase().includes(q)) return false;
+    if (fm && b.month !== fm) return false;
+    if (fs && b.status !== fs) return false;
+    return true;
+  });
+  document.getElementById('bills-count-label').textContent = bills.length + ' bill' + (bills.length!==1?'s':'') + ' found';
+  const tbody = document.getElementById('all-bill-list');
+  if (!bills.length) {
+    tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state"><div class="empty-icon">📂</div>No bills match your filters.</div></td></tr>'; return;
+  }
+  tbody.innerHTML = bills.map(b => {
+    const ri = data.bills.indexOf(b);
+    return `<tr>
+      <td style="color:var(--ink-dim);font-family:'Geist Mono',monospace;">#${ri+1}</td>
+      <td><strong>${b.customer}</strong></td>
+      <td style="color:var(--ink-dim);">${b.month}</td>
+      <td style="color:var(--ink-dim);">${b.items.length}</td>
+      <td class="mono" style="color:var(--accent);">${b.badDebt>0?fmt(b.badDebt):'-'}</td>
+      <td class="mono"><strong>${fmt(b.total)}</strong></td>
+      <td>
+        <select class="status-sel" onchange="setStatus(${ri},this.value)">
+          <option value="pending"${b.status==='pending'?' selected':''}>Pending</option>
+          <option value="paid"${b.status==='paid'?' selected':''}>Paid</option>
+          <option value="bad"${b.status==='bad'?' selected':''}>Baki</option>
+        </select>
+      </td>
+      <td><div class="btn-group">
+        <button class="btn btn-ghost btn-xs" onclick="viewBill(${ri})">👁 View</button>
+        <button class="btn btn-secondary btn-xs" onclick="editBill(${ri})">✏️ Edit</button>
+        <button class="btn btn-ghost btn-xs" onclick="printBill(${ri})">🖨</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteBill(${ri})">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function setStatus(idx, val) { data.bills[idx].status = val; save(); toast('Status updated.'); }
+function deleteBill(idx) {
+  showConfirm('Delete this bill?', () => {
+    data.bills.splice(idx,1); save(); renderBills(); toast('Bill deleted.');
+  });
+}
+function printBill(idx) { viewBill(idx); setTimeout(() => printInvoicePopup(), 700); }
+
+function printInvoicePopup() {
+  // Ensure print-section is visible before printing
+  const ps = document.getElementById('print-section');
+  if (!ps.classList.contains('show')) {
+    toast('Pehle Preview karo, phir Print karo.');
+    return;
+  }
+
+  // Build print HTML from current invoice content
+  const g = id => { const el = document.getElementById(id); return el ? el.innerHTML : ''; };
+  const gt = id => { const el = document.getElementById(id); return el ? el.textContent : ''; };
+
+  const company  = gt('p-company');
+  const subtitle = gt('p-subtitle');
+  const address  = gt('p-address');
+  const month    = gt('p-month');
+  const customer = gt('p-customer');
+  const subtotal = gt('p-subtotal');
+  const bad      = gt('p-bad');
+  const total    = gt('p-total');
+  const gst      = gt('p-gst');
+  const rowsHTML = document.getElementById('print-rows').innerHTML;
+
+  const printHTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Invoice — ${customer} — ${month}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #fff;
+      color: #000;
+      padding: 32px 40px;
+      max-width: 780px;
+      margin: auto;
+      font-size: 13px;
+    }
+    .hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 2px solid #000;
+      padding-bottom: 16px;
+      margin-bottom: 22px;
+    }
+    .brand h1 {
+      font-family: 'Courier New', monospace;
+      font-size: 22px;
+      font-weight: 700;
+      color: #000;
+      letter-spacing: -0.3px;
+    }
+    .brand p { font-size: 12px; color: #555; margin-top: 3px; }
+    .meta { text-align: right; font-size: 12px; color: #444; }
+    .meta .lbl {
+      font-family: 'Courier New', monospace;
+      font-size: 20px;
+      font-weight: 700;
+      color: #000;
+      display: block;
+      margin-bottom: 6px;
+      letter-spacing: 2px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+      margin-bottom: 20px;
+    }
+    thead th {
+      background: #000;
+      color: #fff;
+      padding: 9px 12px;
+      text-align: left;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    tbody td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #ddd;
+      color: #000;
+    }
+    tbody tr:nth-child(even) td {
+      background: #f7f7f7;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .tots { margin-left: auto; width: 260px; }
+    .tr {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #ddd;
+      font-size: 13px;
+      color: #000;
+    }
+    .tr.grand {
+      font-weight: 700;
+      font-size: 15px;
+      border-top: 2px solid #000;
+      border-bottom: none;
+      padding-top: 9px;
+      margin-top: 4px;
+    }
+    .foot {
+      margin-top: 32px;
+      padding-top: 14px;
+      border-top: 1px solid #ccc;
+      font-size: 11px;
+      color: #555;
+      display: flex;
+      justify-content: space-between;
+    }
+    @media print {
+      body { padding: 0; }
+      @page { margin: 12mm 15mm; size: A4; }
+    }
+  </style>
+</head>
+<body>
+  <div class="hdr">
+    <div class="brand">
+      <h1>${company}</h1>
+      ${subtitle ? `<p>${subtitle}</p>` : ''}
+      ${address  ? `<p style="margin-top:4px;font-size:11px;">${address}</p>` : ''}
+    </div>
+    <div class="meta">
+      <span class="lbl">INVOICE</span>
+      Month: ${month}<br>
+      To: <strong>${customer}</strong>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Item</th>
+        <th>Finish</th>
+        <th style="text-align:right;">Pcs/Kg</th>
+        <th style="text-align:right;">Rate</th>
+        <th style="text-align:right;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>${rowsHTML}</tbody>
+  </table>
+  <div class="tots">
+    <div class="tr"><span>Subtotal</span><span>${subtotal}</span></div>
+    <div class="tr"><span>Baki</span><span>${bad}</span></div>
+    <div class="tr grand"><span>TOTAL</span><span>${total}</span></div>
+  </div>
+  <div class="foot">
+    <span>${gst}</span>
+    <span>Authorised Signature</span>
+  </div>
+  <script>
+    // Auto-print jab browser mein open ho
+    window.onload = function() {
+      setTimeout(function() { window.print(); }, 400);
+    };
+  <\/script>
+</body>
+</html>`;
+
+  // Electron-compatible: download as HTML file, user opens in browser to print
+  const blob = new Blob([printHTML], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `Invoice_${customer.replace(/\s+/g,'_')}_${month||'Invoice'}.html`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
+  toast('Invoice download ho gayi! Browser mein open karke Print karo.');
+}
+
+// ─── CUSTOMERS ────────────────────────────────────────────────────────────
+function renderCustomers() {
+  refreshCustomerDatalist();
+  const tbody = document.getElementById('customer-list-tbl');
+  if (!data.customers.length) { tbody.innerHTML='<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">🏭</div>No customers yet.</div></td></tr>'; return; }
+  tbody.innerHTML = data.customers.map((c,i)=>`<tr>
+    <td style="color:var(--ink-dim);">${i+1}</td>
+    <td><strong>${c.name}</strong></td>
+    <td style="color:var(--ink-dim);">${c.contact||'-'}</td>
+    <td style="color:var(--ink-dim);">${c.address||'-'}</td>
+    <td><div class="btn-group">
+      <button class="btn btn-ghost btn-xs" onclick="openCustomerModal(${i})">Edit</button>
+      <button class="btn btn-danger btn-xs" onclick="deleteCustomer(${i})">Delete</button>
+    </div></td>
+  </tr>`).join('');
+}
+
+function refreshCustomerDatalist() {
+  const dl = document.getElementById('customer-list');
+  if (dl) dl.innerHTML = data.customers.map(c=>`<option value="${c.name}">`).join('');
+}
+
+function openCustomerModal(idx) {
+  const c = idx!==undefined ? data.customers[idx] : null;
+  document.getElementById('cust-edit-idx').value = idx!==undefined?idx:-1;
+  document.getElementById('cust-name').value    = c?c.name:'';
+  document.getElementById('cust-contact').value = c?c.contact:'';
+  document.getElementById('cust-address').value = c?c.address:'';
+  document.getElementById('modal-customer').classList.add('show');
+}
+
+function saveCustomer() {
+  const idx  = parseInt(document.getElementById('cust-edit-idx').value);
+  const cust = { name: document.getElementById('cust-name').value.trim(), contact: document.getElementById('cust-contact').value.trim(), address: document.getElementById('cust-address').value.trim() };
+  if (!cust.name) { toast('Name required.'); return; }
+  if (idx===-1) data.customers.push(cust); else data.customers[idx]=cust;
+  save(); closeModal('modal-customer'); renderCustomers(); toast('Customer saved.');
+}
+
+function deleteCustomer(idx) {
+  showConfirm('Delete this customer?', () => {
+    data.customers.splice(idx,1); save(); renderCustomers();
+  });
+}
+
+// ─── ITEM MASTER ──────────────────────────────────────────────────────────
+function renderItemMaster() {
+  const tbody = document.getElementById('item-master-list');
+  if (!data.items.length) { tbody.innerHTML='<tr><td colspan="5"><div class="empty-state"><div class="empty-icon">📦</div>No items yet.</div></td></tr>'; return; }
+  tbody.innerHTML = data.items.map((item,i)=>`<tr>
+    <td style="color:var(--ink-dim);">${i+1}</td>
+    <td><strong>${item.name}</strong></td>
+    <td style="color:var(--ink-mid);">${item.finish||'-'}</td>
+    <td class="mono">₹${parseFloat(item.rate||0).toFixed(2)}</td>
+    <td><div class="btn-group">
+      <button class="btn btn-ghost btn-xs" onclick="openItemModal(${i})">Edit</button>
+      <button class="btn btn-danger btn-xs" onclick="deleteItem(${i})">Delete</button>
+    </div></td>
+  </tr>`).join('');
+}
+
+function openItemModal(idx) {
+  const item = idx!==undefined?data.items[idx]:null;
+  document.getElementById('item-edit-idx').value = idx!==undefined?idx:-1;
+  document.getElementById('mi-name').value   = item?item.name:'';
+  document.getElementById('mi-finish').value = item?item.finish:'';
+  document.getElementById('mi-rate').value   = item?item.rate:'';
+  const miDl = document.getElementById('mi-finish-list');
+  if (miDl) miDl.innerHTML = (data.finishes||[]).map(f=>`<option value="${f}">`).join('');
+  document.getElementById('modal-item').classList.add('show');
+}
+
+function saveItem() {
+  const idx  = parseInt(document.getElementById('item-edit-idx').value);
+  const item = { name: document.getElementById('mi-name').value.trim().toUpperCase(), finish: document.getElementById('mi-finish').value.trim(), rate: parseFloat(document.getElementById('mi-rate').value)||0 };
+  if (!item.name) { toast('Item name required.'); return; }
+  if (idx===-1) data.items.push(item); else data.items[idx]=item;
+  save(); closeModal('modal-item'); renderItemMaster(); toast('Item saved.');
+}
+
+function deleteItem(idx) {
+  showConfirm('Delete this item?', () => {
+    data.items.splice(idx,1); save(); renderItemMaster(); toast('Item deleted.');
+  });
+}
+
+// ─── FINISH MASTER ────────────────────────────────────────────────────────
+function renderFinishMaster() {
+  const tbody = document.getElementById('finish-master-list');
+  if (!data.finishes.length) { tbody.innerHTML='<tr><td colspan="3"><div class="empty-state"><div class="empty-icon">✨</div>No finishes yet.</div></td></tr>'; return; }
+  tbody.innerHTML = data.finishes.map((f,i)=>`<tr>
+    <td style="color:var(--ink-dim);">${i+1}</td>
+    <td><strong>${f}</strong></td>
+    <td><div class="btn-group">
+      <button class="btn btn-ghost btn-xs" onclick="openFinishModal(${i})">Edit</button>
+      <button class="btn btn-danger btn-xs" onclick="deleteFinish(${i})">Delete</button>
+    </div></td>
+  </tr>`).join('');
+}
+
+function openFinishModal(idx) {
+  document.getElementById('finish-edit-idx').value = idx !== undefined ? idx : -1;
+  document.getElementById('finish-name').value = idx !== undefined ? data.finishes[idx] : '';
+  document.getElementById('modal-finish').classList.add('show');
+}
+
+function saveFinish() {
+  const idx  = parseInt(document.getElementById('finish-edit-idx').value);
+  const name = document.getElementById('finish-name').value.trim();
+  if (!name) { toast('Finish name required.'); return; }
+  if (idx === -1) data.finishes.push(name); else data.finishes[idx] = name;
+  save(); closeModal('modal-finish'); renderFinishMaster(); refreshFinishDatalist(); toast('Finish saved.');
+}
+
+function deleteFinish(idx) {
+  showConfirm('Delete this finish?', () => {
+    data.finishes.splice(idx,1); save(); renderFinishMaster(); refreshFinishDatalist(); toast('Finish deleted.');
+  });
+}
+
+function refreshFinishDatalist() {
+  // refresh all finish datalists in current item rows
+  document.querySelectorAll('[id^="fnl-"]').forEach(dl => {
+    dl.innerHTML = finishOptions();
+  });
+  // refresh item modal datalist
+  const miDl = document.getElementById('mi-finish-list');
+  if (miDl) miDl.innerHTML = (data.finishes||[]).map(f=>`<option value="${f}">`).join('');
+}
+
+// ─── SETTINGS ────────────────────────────────────────────────────────────
+function loadSettings() {
+  const s = data.settings;
+  document.getElementById('set-company').value  = s.company;
+  document.getElementById('set-subtitle').value = s.subtitle;
+  document.getElementById('set-address').value  = s.address;
+  document.getElementById('set-phone').value    = s.phone;
+  document.getElementById('set-gst').value      = s.gst;
+}
+
+function saveSettings() {
+  data.settings = {
+    company: document.getElementById('set-company').value,
+    subtitle: document.getElementById('set-subtitle').value,
+    address: document.getElementById('set-address').value,
+    phone: document.getElementById('set-phone').value,
+    gst: document.getElementById('set-gst').value,
+  };
+  save(); toast('Settings saved!');
+}
+
+// ─── MODAL ────────────────────────────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target===m) m.classList.remove('show'); });
+});
+
+// ─── WHATSAPP SEND ────────────────────────────────────────────────────────
+function sendWhatsApp() {
+  const customer = document.getElementById('p-customer')?.textContent?.trim() || '';
+  const month    = document.getElementById('p-month')?.textContent?.trim() || '';
+  const total    = document.getElementById('p-total')?.textContent?.trim() || '';
+  const g = id => { const el = document.getElementById(id); return el ? el.textContent : ''; };
+  const company  = g('p-company');
+  const gst      = g('p-gst');
+  const today    = new Date().toLocaleDateString('en-IN');
+  const filename = `Invoice_${customer.replace(/\s+/g,'_')}_${month||today}.pdf`;
+
+  // Use the VISIBLE print-section directly via html2canvas screenshot → jsPDF
+  const printEl = document.getElementById('print-section');
+  if (!printEl || !printEl.classList.contains('show')) {
+    toast('Pehle bill generate karein (Preview dikhna chahiye).');
+    return;
+  }
+
+  toast('PDF taiyar ho rahi hai...');
+
+  // Temporarily hide action buttons so they don't appear in PDF
+  const actionsEl = printEl.querySelector('.inv-actions');
+  if (actionsEl) actionsEl.style.display = 'none';
+
+  html2canvas(printEl, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: '#ffffff',
+    logging: false,
+    width: printEl.scrollWidth,
+    height: printEl.scrollHeight,
+    windowWidth: printEl.scrollWidth
+  }).then(canvas => {
+    if (actionsEl) actionsEl.style.display = '';
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const imgW = pageW - margin * 2;
+    const imgH = (canvas.height * imgW) / canvas.width;
+
+    // If content fits in one page
+    if (imgH <= pageH - margin * 2) {
+      pdf.addImage(imgData, 'JPEG', margin, margin, imgW, imgH);
+    } else {
+      // Multi-page support
+      let yOffset = 0;
+      const pageImgH = pageH - margin * 2;
+      while (yOffset < imgH) {
+        if (yOffset > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', margin, margin - yOffset, imgW, imgH);
+        yOffset += pageImgH;
+      }
+    }
+
+    pdf.save(filename);
+
+    // Open WhatsApp after short delay
+    setTimeout(() => {
+      const msg = encodeURIComponent(
+        `*Invoice - ${company}*\n\nParty: ${customer}\nMonth: ${month}\n*Total: ${total}*\n\nPDF download ho gayi hai. Kripya attach karke bhejein.\n\n_${gst}_`
+      );
+      window.open(`https://wa.me/?text=${msg}`, '_blank');
+      toast('✅ PDF download + WhatsApp khul gaya!');
+    }, 800);
+
+  }).catch(err => {
+    if (actionsEl) actionsEl.style.display = '';
+    console.error(err);
+    toast('PDF banana fail hua. Dobara try karein.');
+  });
+}
+
+function downloadInvoice() {
+  const printEl = document.getElementById('print-section');
+  if (!printEl || !printEl.classList.contains('show')) {
+    toast('Pehle bill generate karein (Preview dikhna chahiye).');
+    return;
+  }
+
+  const g = id => { const el = document.getElementById(id); return el ? el.textContent : ''; };
+  const customer = g('p-customer');
+  const month    = g('p-month');
+  const today    = new Date().toLocaleDateString('en-IN');
+  const filename = `Invoice_${customer.replace(/\s+/g,'_')}_${month||today}.pdf`;
+
+  toast('PDF taiyar ho rahi hai...');
+
+  // Hide action buttons so they don't appear in PDF
+  const actionsEl = printEl.querySelector('.inv-actions');
+  if (actionsEl) actionsEl.style.display = 'none';
+
+  html2canvas(printEl, {
+    scale: 2,
+    useCORS: true,
+    backgroundColor: '#ffffff',
+    logging: false,
+    width: printEl.scrollWidth,
+    height: printEl.scrollHeight,
+    windowWidth: printEl.scrollWidth
+  }).then(canvas => {
+    if (actionsEl) actionsEl.style.display = '';
+
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const margin = 10;
+    const imgW = pageW - margin * 2;
+    const imgH = (canvas.height * imgW) / canvas.width;
+
+    if (imgH <= pageH - margin * 2) {
+      pdf.addImage(imgData, 'JPEG', margin, margin, imgW, imgH);
+    } else {
+      let yOffset = 0;
+      const pageImgH = pageH - margin * 2;
+      while (yOffset < imgH) {
+        if (yOffset > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', margin, margin - yOffset, imgW, imgH);
+        yOffset += pageImgH;
+      }
+    }
+
+    pdf.save(filename);
+    toast('✅ PDF download ho gayi!');
+  }).catch(err => {
+    if (actionsEl) actionsEl.style.display = '';
+    console.error(err);
+    toast('PDF banana fail hua. Dobara try karein.');
+  });
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────
+let _confirmCb = null;
+function showConfirm(msg, cb) {
+  _confirmCb = cb;
+  document.getElementById('confirm-msg').textContent = msg;
+  document.getElementById('modal-confirm').classList.add('show');
+}
+function confirmResolve(yes) {
+  document.getElementById('modal-confirm').classList.remove('show');
+  if (yes && _confirmCb) _confirmCb();
+  _confirmCb = null;
+}
+function fmt(n) { return '₹'+parseFloat(n||0).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function toast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+// ─── MOBILE NAV VISIBILITY ───────────────────────────────────────────────
+function checkMobileNav() {
+  const nav = document.getElementById('mobileNav');
+  if (window.innerWidth <= 768) {
+    nav.style.display = 'flex';
+  } else {
+    nav.style.display = 'none';
+  }
+}
+checkMobileNav();
+window.addEventListener('resize', checkMobileNav);
+
+// ─── INIT ─────────────────────────────────────────────────────────────────
+resetBillForm();
+renderDashboard();
+</script>
+</body>
+</html>
